@@ -1,29 +1,28 @@
-#include <vector>
 #include <cstddef>
 #include <iostream>
+#include <vector>
 
 struct shape_t {
     size_t rows, cols;
 };
 
-template<class T>
-class mat {
+template <class T> class mat {
     std::vector<T> data;
     const size_t rows;
     const size_t cols;
-    
-    public:
-    mat(): rows(0), cols(0) {};
-    ~mat() {};
-    mat(size_t rows, size_t cols): rows(rows), cols(cols) {
+
+  public:
+    mat() : rows(0), cols(0){};
+    ~mat(){};
+    mat(size_t rows, size_t cols) : rows(rows), cols(cols) {
         data = std::vector<T>(rows * cols);
     }
-    mat(size_t rows, size_t cols, T fill_value): rows(rows), cols(cols) {
+    mat(size_t rows, size_t cols, T fill_value) : rows(rows), cols(cols) {
         data = std::vector<T>(rows * cols, fill_value);
     }
 
     shape_t shape() { return shape_t{rows, cols}; };
-    bool empty() {return rows == 0 and cols == 0; };
+    bool empty() { return rows == 0 and cols == 0; };
 
     inline T get(size_t row, size_t col) const {
         return data[rows * row + col];
@@ -43,8 +42,9 @@ class mat {
     }
 
     mat dot(mat other) const {
-        if (not (cols == other.rows)) {
-            throw std::invalid_argument("inner dimensions don't match for dot product");
+        if (not(cols == other.rows)) {
+            throw std::invalid_argument(
+                "inner dimensions don't match for dot product");
         }
         mat new_mat = mat(rows, other.cols);
         for (size_t new_row = 0; new_row < rows; new_row++) {

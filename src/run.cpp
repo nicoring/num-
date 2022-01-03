@@ -4,7 +4,7 @@
 
 int main() {
     mat<double> empty_matrix;
-    assert (empty_matrix.empty());
+    assert(empty_matrix.empty());
     mat<double> matrix(2, 2, 0);
     mat<double> id(2, 2, 0);
     id.set(0, 0, 1);
