@@ -1,14 +1,30 @@
 #include <cstddef>
 #include <iostream>
+#include <ostream>
 #include <random>
+#include <sstream>
 #include <vector>
 
-namespace mat {
+#ifndef MATRIX_H
+#define MATRIX_H
+
+namespace num {
 
 struct shape_t {
     uint32_t rows;
     uint32_t cols;
 };
+
+std::ostream& operator<<(std::ostream& out, const shape_t& shape) {
+    out << "(" << shape.rows << ", " << shape.cols << ")";
+    return out;
+}
+
+std::string to_string(const shape_t& shape) {
+    std::ostringstream ss;
+    ss << shape;
+    return std::move(ss).str();
+}
 
 template <typename T> class matrix {
   private:
@@ -30,11 +46,11 @@ template <typename T> class matrix {
     bool empty() const { return rows == 0 && cols == 0; };
 
     inline T get(uint32_t row, uint32_t col) const {
-        return data[rows * row + col];
+        return data[row * cols + col];
     };
 
     inline void set(uint32_t row, uint32_t col, T value) {
-        data[rows * row + col] = value;
+        data[row * cols + col] = value;
     };
 
     void print() const {
@@ -48,12 +64,16 @@ template <typename T> class matrix {
 
     matrix dot(matrix other) const {
         if (cols != other.rows) {
+            std::string my_shape = to_string(shape());
+            std::string other_shape = to_string(other.shape());
             throw std::invalid_argument(
-                "inner dimensions don't match for dot product");
+                "inner dimensions don't match for dot product: " + my_shape +
+                " " + other_shape);
         }
         matrix new_mat(rows, other.cols);
         for (uint32_t new_row = 0; new_row < rows; new_row++) {
             for (uint32_t new_col = 0; new_col < other.cols; new_col++) {
+
                 T value = 0;
                 for (uint32_t inner = 0; inner < cols; inner++) {
                     value += get(new_row, inner) * other.get(inner, new_col);
@@ -74,9 +94,20 @@ template <typename T> class matrix {
         return new_mat;
     };
 
+    matrix& operator=(const matrix& m) {
+        if (this == &m)
+            return *this;
+        if (m.rows != rows || m.cols != cols) {
+            throw std::invalid_argument(
+                "cols or rows don't match for assignment");
+        }
+        data.assign(m.data.begin(), m.data.end());
+        return *this;
+    }
+
 #define add_operators(op)                                                      \
     matrix operator op(T rhs) const {                                          \
-        matrix new_mat(cols, rows);                                            \
+        matrix new_mat(rows, cols);                                            \
         for (uint32_t row = 0; row < rows; row++) {                            \
             for (uint32_t col = 0; col < cols; col++) {                        \
                 new_mat.set(row, col, get(row, col) op rhs);                   \
@@ -85,8 +116,8 @@ template <typename T> class matrix {
         return new_mat;                                                        \
     };                                                                         \
                                                                                \
-    friend matrix operator op(T lhs, matrix& rhs) {                            \
-        matrix<T> new_mat(rhs.cols, rhs.rows);                                 \
+    friend matrix operator op(T lhs, const matrix& rhs) {                      \
+        matrix<T> new_mat(rhs.rows, rhs.cols);                                 \
         for (uint32_t row = 0; row < rhs.rows; row++) {                        \
             for (uint32_t col = 0; col < rhs.cols; col++) {                    \
                 new_mat.set(row, col, lhs op rhs.get(row, col));               \
@@ -95,8 +126,12 @@ template <typename T> class matrix {
         return new_mat;                                                        \
     };                                                                         \
                                                                                \
-    matrix operator op(matrix& rhs) const {                                    \
-        matrix new_mat(cols, rows);                                            \
+    matrix operator op(const matrix& rhs) const {                              \
+        if (rhs.rows != rows || rhs.cols != cols) {                            \
+            throw std::invalid_argument(                                       \
+                "cols or rows don't match for operation ");                    \
+        }                                                                      \
+        matrix new_mat(rows, cols);                                            \
         for (uint32_t row = 0; row < rows; row++) {                            \
             for (uint32_t col = 0; col < cols; col++) {                        \
                 new_mat.set(row, col, get(row, col) op rhs.get(row, col));     \
@@ -110,6 +145,16 @@ template <typename T> class matrix {
     add_operators(*);
     add_operators(/);
 #undef add_operators
+
+    T sum() const {
+        T res = 0;
+        for (uint32_t row = 0; row < rows; row++) {
+            for (uint32_t col = 0; col < cols; col++) {
+                res += get(row, col);
+            }
+        }
+        return res;
+    }
 };
 
 template <typename T> matrix<T> zeros(uint32_t rows, uint32_t cols) {
@@ -170,4 +215,6 @@ matrix<double> randn(uint32_t rows, uint32_t cols, double mean = 0,
     return mat;
 }
 
-} // namespace mat
+} // namespace num
+
+#endif
