@@ -5,7 +5,6 @@
 
 void test_matrix() {
     num::matrix<double> empty_matrix;
-    assert(empty_matrix.empty());
     num::matrix<double> matrix(2, 2, 0);
     num::matrix<double> id(2, 2, 0);
     id.set(0, 0, 1);
