@@ -41,9 +41,31 @@ template <typename T> class matrix {
     matrix(uint32_t rows, uint32_t cols, T fill_value)
         : rows(rows), cols(cols), data(rows * cols, fill_value){};
 
+    matrix(uint32_t rows, uint32_t cols, const std::vector<T>& values)
+        : matrix(rows, cols) {
+        if (values.size() != rows * cols) {
+            throw std::invalid_argument(
+                "rows and cols do not match with passed values");
+        }
+        data.assign(values.begin(), values.end());
+    };
+
+    matrix(const std::vector<std::vector<T>>& values)
+        : matrix(values.size(), values[0].size()) {
+        for (u_int32_t row = 0; row < rows; row++) {
+            if (values[row].size() != cols) {
+                throw std::invalid_argument("Not all rows of passed values "
+                                            "have the same number of columns");
+            }
+            for (u_int32_t col = 0; col < cols; col++) {
+                set(row, col, values[row][col]);
+            }
+        }
+    };
+
     shape_t shape() const { return shape_t{rows, cols}; };
 
-    bool empty() const { return rows == 0 && cols == 0; };
+    bool empty() const { return rows == 0 || cols == 0; };
 
     inline T get(uint32_t row, uint32_t col) const {
         return data[row * cols + col];
@@ -146,11 +168,74 @@ template <typename T> class matrix {
     add_operators(/);
 #undef add_operators
 
+#define add_comparison_operators(op)                                           \
+    matrix<bool> operator op(T rhs) const {                                    \
+        matrix<bool> new_mat(rows, cols);                                      \
+        for (uint32_t row = 0; row < rows; row++) {                            \
+            for (uint32_t col = 0; col < cols; col++) {                        \
+                new_mat.set(row, col, get(row, col) op rhs);                   \
+            }                                                                  \
+        }                                                                      \
+        return new_mat;                                                        \
+    };                                                                         \
+                                                                               \
+    friend matrix<bool> operator op(T lhs, const matrix& rhs) {                \
+        matrix<bool> new_mat(rhs.rows, rhs.cols);                              \
+        for (uint32_t row = 0; row < rhs.rows; row++) {                        \
+            for (uint32_t col = 0; col < rhs.cols; col++) {                    \
+                new_mat.set(row, col, lhs op rhs.get(row, col));               \
+            }                                                                  \
+        }                                                                      \
+        return new_mat;                                                        \
+    };                                                                         \
+                                                                               \
+    matrix<bool> operator op(const matrix& rhs) const {                        \
+        if (rhs.rows != rows || rhs.cols != cols) {                            \
+            throw std::invalid_argument(                                       \
+                "cols or rows don't match for operation ");                    \
+        }                                                                      \
+        matrix<bool> new_mat(rows, cols);                                      \
+        for (uint32_t row = 0; row < rows; row++) {                            \
+            for (uint32_t col = 0; col < cols; col++) {                        \
+                new_mat.set(row, col, get(row, col) op rhs.get(row, col));     \
+            }                                                                  \
+        }                                                                      \
+        return new_mat;                                                        \
+    };
+
+    add_comparison_operators(==);
+    add_comparison_operators(!=);
+    add_comparison_operators(<=);
+    add_comparison_operators(>=);
+    add_comparison_operators(>);
+    add_comparison_operators(<);
+#undef add_comparison_operators
+
     T sum() const {
         T res = 0;
         for (uint32_t row = 0; row < rows; row++) {
             for (uint32_t col = 0; col < cols; col++) {
                 res += get(row, col);
+            }
+        }
+        return res;
+    }
+
+    bool all() const {
+        bool res = true;
+        for (uint32_t row = 0; row < rows; row++) {
+            for (uint32_t col = 0; col < cols; col++) {
+                res &= get(row, col);
+            }
+        }
+        return res;
+    }
+
+    bool any() const {
+        bool res = false;
+        for (uint32_t row = 0; row < rows; row++) {
+            for (uint32_t col = 0; col < cols; col++) {
+                res |= get(row, col);
             }
         }
         return res;

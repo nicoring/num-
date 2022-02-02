@@ -8,8 +8,7 @@
 namespace num {
 
 matrix<double> train_linear_model(const matrix<double>& X,
-                                  const matrix<double>& y,
-                                  const double lr = .1,
+                                  const matrix<double>& y, const double lr = .1,
                                   const int iterations = 1000) {
     matrix<double> coefs(X.shape().cols, 1, 0);
     const double weighted_lr = lr / double(X.shape().rows);
