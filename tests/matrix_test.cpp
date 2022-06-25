@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../src/linear.hpp"
+#include "../src/matrix.hpp"
 
 TEST(Initialization, Empty) {
     num::matrix<double> empty_matrix;
@@ -72,10 +72,8 @@ TEST(Initialization, WithValuesVectorOfVectors) {
 }
 
 TEST(Initialization, WrongValuesVectorOfVectors) {
-    EXPECT_THROW(num::matrix<int> mat({{1, 2}, {4, 5, 6}}),
-                 std::invalid_argument);
+    EXPECT_THROW(num::matrix<int> mat({{1, 2}, {4, 5, 6}}), std::invalid_argument);
 }
-
 
 TEST(Operators, PlusScalarInt) {
     num::matrix<int> mat(2, 2, 0);
@@ -151,5 +149,52 @@ TEST(AggregationMethods, Any) {
 }
 
 TEST(ComparisonOperators, Eq) {
+    num::matrix<int> mat1(2, 2, 2);
+    num::matrix<int> mat2(2, 2, 2);
+    auto res = mat1 == mat2;
+    EXPECT_TRUE(res.get(0, 0));
+    EXPECT_TRUE(res.all());
 
+    mat2.set(0, 0, 42);
+    auto res2 = mat1 == mat2;
+    EXPECT_FALSE(res2.get(0, 0));
+    EXPECT_TRUE(res2.get(0, 1));
+    EXPECT_FALSE(res2.all());
+}
+
+TEST(ComparisonOperators, UnEq) {
+    num::matrix<int> mat1(2, 2, 1);
+    num::matrix<int> mat2(2, 2, 2);
+    auto res = mat1 != mat2;
+    EXPECT_TRUE(res.get(0, 0));
+    EXPECT_TRUE(res.all());
+
+    mat2.set(0, 0, 1);
+    auto res2 = mat1 != mat2;
+    EXPECT_FALSE(res2.get(0, 0));
+    EXPECT_TRUE(res2.get(0, 1));
+    EXPECT_FALSE(res2.all());
+}
+
+TEST(ComparisonOperators, GreaterEq) {
+    num::matrix<int> mat1(2, 2, 2);
+    num::matrix<int> mat2(2, 2, 1);
+    auto res = mat1 >= mat2;
+    EXPECT_TRUE(res.all());
+    mat1.set(0, 0, 0);
+    mat1.set(0, 1, 1);
+    auto res2 = mat1 >= mat2;
+    EXPECT_FALSE(res2.get(0, 0));
+    EXPECT_TRUE(res2.get(0, 1));
+    EXPECT_FALSE(res2.all());
+}
+
+TEST(RowAccess, GetRow) {
+    num::matrix<int> mat(3, 2, 2);
+    num::matrix<int> expected({{2, 2}, {4, 4}, {2, 2}});
+
+    num::matrix_row<int> row = mat.get(1);
+    row += 2;
+
+    EXPECT_TRUE((mat == expected).all());
 }

@@ -5,8 +5,8 @@ project(num++)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-SET(CMAKE_CXX_FLAGS "-O3")
-SET(CMAKE_C_FLAGS "-O3")
+SET(CMAKE_CXX_FLAGS "-Ofast -ffast-math")
+SET(CMAKE_C_FLAGS "-Ofast")
 
 add_executable(run src/run.cpp)
 add_executable(benchmark src/benchmark.cpp)
@@ -21,7 +21,9 @@ FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 enable_testing()
-add_executable(matrix_test tests/matrix_test.cpp)
-target_link_libraries(matrix_test gtest_main)
 
-gtest_discover_tests(matrix_test)
+foreach(test_name linear matrix)
+  add_executable(${test_name}_test tests/${test_name}_test.cpp)
+  target_link_libraries(${test_name}_test gtest_main)
+  gtest_discover_tests(${test_name}_test)
+endforeach()
