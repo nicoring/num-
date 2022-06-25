@@ -75,6 +75,15 @@ TEST(Initialization, WrongValuesVectorOfVectors) {
     EXPECT_THROW(num::matrix<int> mat({{1, 2}, {4, 5, 6}}), std::invalid_argument);
 }
 
+TEST(Transpose, values) {
+    num::matrix<int> mat({{1, 2, 3}, {4, 5, 6}});
+    num::matrix<int> expected({{1, 4}, {2, 5}, {3, 6}});
+
+    num::matrix<int> mat_transposed = mat.transpose();
+
+    EXPECT_TRUE((mat_transposed == expected).all());
+}
+
 TEST(Operators, PlusScalarInt) {
     num::matrix<int> mat(2, 2, 0);
     auto mat2 = mat + 2;
@@ -192,9 +201,52 @@ TEST(ComparisonOperators, GreaterEq) {
 TEST(RowAccess, GetRow) {
     num::matrix<int> mat(3, 2, 2);
     num::matrix<int> expected({{2, 2}, {4, 4}, {2, 2}});
+    num::matrix<int> expected2({{2, 2}, {4, 4}, {3, 3}});
 
     num::matrix_row<int> row = mat.get(1);
     row += 2;
+    EXPECT_TRUE((mat == expected).all());
+
+    mat[2] += 1;
+    EXPECT_TRUE((mat == expected2).all());
+
+    EXPECT_EQ(mat.get(1, 0), 4);
+
+    row[0] += 1;
+    EXPECT_EQ(mat.get(1, 0), 5);
+
+    int value = row[0];
+    value += 1;
+    EXPECT_EQ(mat.get(1, 0), 5);
+}
+
+TEST(RowAccess, Assignment) {
+    num::matrix<int> mat(3, 2, 2);
+
+    mat[1] = 4;
+
+    num::matrix<int> expected({{2, 2}, {4, 4}, {2, 2}});
 
     EXPECT_TRUE((mat == expected).all());
+}
+
+TEST(Access, Retrieval) {
+    num::matrix<int> mat(3, 2, 2);
+    int value = mat[0][1];
+    EXPECT_EQ(mat[0][0], 2);
+    EXPECT_EQ(value, 2);
+}
+
+TEST(Access, InplaceEdit) {
+    num::matrix<int> mat(3, 2, 2);
+
+    mat[0][0] += 1;
+    EXPECT_EQ(mat.get(0, 0), 3);
+}
+
+TEST(Access, Assignment) {
+    num::matrix<int> mat(3, 2, 2);
+
+    mat[0][0] = 5;
+    EXPECT_EQ(mat.get(0, 0), 5);
 }

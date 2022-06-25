@@ -22,7 +22,7 @@ FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 enable_testing()
 
-foreach(test_name linear matrix)
+foreach(test_name matrix linear linalg)
   add_executable(${test_name}_test tests/${test_name}_test.cpp)
   target_link_libraries(${test_name}_test gtest_main)
   gtest_discover_tests(${test_name}_test)

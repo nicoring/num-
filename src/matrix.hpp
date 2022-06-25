@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <iostream>
 #include <ostream>
 #include <random>
@@ -32,9 +31,17 @@ template <typename T> class matrix_row {
 
   public:
     matrix_row(std::span<T> row) : row(row){};
-    T get(uint32_t col) { return row[col]; };
-    void set(uint32_t col, T value) { row[col] = value; };
     uint32_t length() { return row.size(); };
+
+    const T& operator[](uint32_t col) const { return row[col]; };
+    T& operator[](uint32_t col) { return row[col]; };
+
+    matrix_row& operator=(T value) {
+        for (T& elem : row) {
+            elem = value;
+        }
+        return *this;
+    }
 
     matrix_row& operator+=(T value) {
         for (T& elem : row) {
@@ -137,10 +144,13 @@ template <typename T> class matrix {
 
     inline T get(uint32_t row, uint32_t col) const { return data[row * cols + col]; };
 
-    inline matrix_row<T> get(uint32_t row) {
+    matrix_row<T> get(uint32_t row) {
         uint32_t offset = row * cols;
         return matrix_row(std::span(data.data() + offset, cols));
     };
+
+    const matrix_row<T> operator[](uint32_t row) const { return get(row); };
+    matrix_row<T> operator[](uint32_t row) { return get(row); };
 
     inline void set(uint32_t row, uint32_t col, T value) {
         data[row * cols + col] = value;
@@ -188,8 +198,10 @@ template <typename T> class matrix {
     };
 
     matrix transpose() const {
-        return map<T>(
-            [&](uint32_t row, uint32_t col, T value) { return get(col, row); });
+        matrix<T> new_mat{cols, rows};
+        for_each(
+            [&](uint32_t row, uint32_t col, T value) { new_mat.set(col, row, value); });
+        return new_mat;
     };
 
     matrix& operator=(const matrix& m) {
