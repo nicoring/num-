@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <ostream>
 #include <random>
@@ -78,24 +79,6 @@ template <typename T> class matrix {
     const uint32_t rows;
     const uint32_t cols;
 
-    template <typename LoopFn> void for_each(LoopFn fn) const {
-        for (uint32_t row = 0; row < rows; ++row) {
-            for (uint32_t col = 0; col < cols; ++col) {
-                fn(row, col, get(row, col));
-            }
-        }
-    }
-
-    template <typename U, typename LoopFn> matrix<U> map(LoopFn fn) const {
-        matrix<U> new_mat(rows, cols);
-        for (uint32_t row = 0; row < rows; ++row) {
-            for (uint32_t col = 0; col < cols; ++col) {
-                new_mat.set(row, col, fn(row, col, get(row, col)));
-            }
-        }
-        return new_mat;
-    }
-
     void ensure_same_dim(const matrix& other) const {
         if (other.rows != rows || other.cols != cols) {
             throw std::invalid_argument("cols or rows don't match for operation");
@@ -140,6 +123,8 @@ template <typename T> class matrix {
 
     shape_t shape() const { return shape_t{rows, cols}; };
 
+    uint64_t size() const { return rows * cols; };
+
     bool empty() const { return rows == 0 || cols == 0; };
 
     inline T get(uint32_t row, uint32_t col) const { return data[row * cols + col]; };
@@ -156,54 +141,6 @@ template <typename T> class matrix {
         data[row * cols + col] = value;
     };
 
-    void print() const {
-        for (uint32_t row = 0; row < rows; row++) {
-            for (uint32_t col = 0; col < cols; col++) {
-                std::cout << get(row, col) << " ";
-            }
-            std::cout << std::endl;
-        }
-    };
-
-    matrix dot(matrix other) const {
-        if (cols != other.rows) {
-            std::string my_shape = to_string(shape());
-            std::string other_shape = to_string(other.shape());
-            throw std::invalid_argument(
-                "inner dimensions don't match for dot product: " + my_shape + " " +
-                other_shape);
-        }
-        matrix new_mat(rows, other.cols);
-
-// #pragma GCC ivdep
-#pragma clang loop vectorize(enable) interleave(enable)
-        for (uint32_t new_row = 0; new_row < rows; new_row++) {
-// #pragma GCC ivdep
-#pragma clang loop vectorize(enable) interleave(enable)
-            for (uint32_t new_col = 0; new_col < other.cols; new_col++) {
-
-// T value = 0;
-// #pragma GCC ivdep
-#pragma clang loop vectorize_width(4) interleave_count(2)
-                for (uint32_t inner = 0; inner < cols; inner++) {
-                    // value += get(new_row, inner) * other.get(inner, new_col);
-                    const T to_add = get(new_row, inner) * other.get(inner, new_col);
-                    const T current = new_mat.get(new_row, new_col);
-                    new_mat.set(new_row, new_col, current + to_add);
-                }
-                // new_mat.set(new_row, new_col, value);
-            }
-        }
-        return new_mat;
-    };
-
-    matrix transpose() const {
-        matrix<T> new_mat{cols, rows};
-        for_each(
-            [&](uint32_t row, uint32_t col, T value) { new_mat.set(col, row, value); });
-        return new_mat;
-    };
-
     matrix& operator=(const matrix& m) {
         if (this == &m)
             return *this;
@@ -214,20 +151,90 @@ template <typename T> class matrix {
         return *this;
     }
 
+    void print() const {
+        for (uint32_t row = 0; row < rows; row++) {
+            for (uint32_t col = 0; col < cols; col++) {
+                std::cout << get(row, col) << " ";
+            }
+            std::cout << std::endl;
+        }
+    };
+
+    /*
+        Transformations
+    */
+
+    template <typename LoopFn> void for_each(LoopFn fn) const {
+        for (uint32_t row = 0; row < rows; ++row) {
+            for (uint32_t col = 0; col < cols; ++col) {
+                fn(row, col, get(row, col));
+            }
+        }
+    }
+
+    template <typename U, typename LoopFn> matrix<U> map(LoopFn fn) const {
+        matrix<U> new_mat(rows, cols);
+        for (uint32_t row = 0; row < rows; ++row) {
+            for (uint32_t col = 0; col < cols; ++col) {
+                new_mat.set(row, col, fn(row, col, get(row, col)));
+            }
+        }
+        return new_mat;
+    }
+
+    template <typename U, typename LoopFn> U reduce(LoopFn fn, U acc) const {
+        for (uint32_t row = 0; row < rows; ++row) {
+            for (uint32_t col = 0; col < cols; ++col) {
+                acc = fn(acc, get(row, col));
+            }
+        }
+        return acc;
+    }
+
+    matrix dot(matrix other) const {
+        if (cols != other.rows) {
+            std::string my_shape = to_string(shape());
+            std::string other_shape = to_string(other.shape());
+            throw std::invalid_argument(
+                "inner dimensions don't match for dot product: " + my_shape + " " +
+                other_shape);
+        }
+        matrix new_mat(rows, other.cols);
+        for (uint32_t new_row = 0; new_row < rows; new_row++) {
+            for (uint32_t new_col = 0; new_col < other.cols; new_col++) {
+                for (uint32_t inner = 0; inner < cols; inner++) {
+                    const T to_add = get(new_row, inner) * other.get(inner, new_col);
+                    const T current = new_mat.get(new_row, new_col);
+                    new_mat.set(new_row, new_col, current + to_add);
+                }
+            }
+        }
+        return new_mat;
+    };
+
+    matrix transpose() const {
+        matrix<T> new_mat{cols, rows};
+        for_each([&new_mat](uint32_t row, uint32_t col, T value) {
+            new_mat.set(col, row, value);
+        });
+        return new_mat;
+    };
+
     // + operators
 
     matrix operator+(T rhs) const {
-        return map<T>([&](uint32_t row, uint32_t col, T value) { return value + rhs; });
+        return map<T>(
+            [&rhs](uint32_t row, uint32_t col, T value) { return value + rhs; });
     }
 
     friend matrix operator+(T lhs, const matrix& rhs) {
         return rhs.map<T>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs + value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs + value; });
     }
 
     matrix operator+(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<T>([&](uint32_t row, uint32_t col, T value) {
+        return map<T>([&rhs](uint32_t row, uint32_t col, T value) {
             return value + rhs.get(row, col);
         });
     };
@@ -235,17 +242,18 @@ template <typename T> class matrix {
     // - operators
 
     matrix operator-(T rhs) const {
-        return map<T>([&](uint32_t row, uint32_t col, T value) { return value - rhs; });
+        return map<T>(
+            [&rhs](uint32_t row, uint32_t col, T value) { return value - rhs; });
     }
 
     friend matrix operator-(T lhs, const matrix& rhs) {
         return rhs.map<T>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs - value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs - value; });
     }
 
     matrix operator-(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<T>([&](uint32_t row, uint32_t col, T value) {
+        return map<T>([&rhs](uint32_t row, uint32_t col, T value) {
             return value - rhs.get(row, col);
         });
     };
@@ -253,17 +261,18 @@ template <typename T> class matrix {
     // * operators
 
     matrix operator*(T rhs) const {
-        return map<T>([&](uint32_t row, uint32_t col, T value) { return value * rhs; });
+        return map<T>(
+            [&rhs](uint32_t row, uint32_t col, T value) { return value * rhs; });
     }
 
     friend matrix operator*(T lhs, const matrix& rhs) {
         return rhs.map<T>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs * value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs * value; });
     }
 
     matrix operator*(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<T>([&](uint32_t row, uint32_t col, T value) {
+        return map<T>([&rhs](uint32_t row, uint32_t col, T value) {
             return value * rhs.get(row, col);
         });
     };
@@ -271,17 +280,18 @@ template <typename T> class matrix {
     // / operators
 
     matrix operator/(T rhs) const {
-        return map<T>([&](uint32_t row, uint32_t col, T value) { return value / rhs; });
+        return map<T>(
+            [&rhs](uint32_t row, uint32_t col, T value) { return value / rhs; });
     }
 
     friend matrix operator/(T lhs, const matrix& rhs) {
         return rhs.map<T>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs / value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs / value; });
     }
 
     matrix operator/(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<T>([&](uint32_t row, uint32_t col, T value) {
+        return map<T>([&rhs](uint32_t row, uint32_t col, T value) {
             return value / rhs.get(row, col);
         });
     };
@@ -290,17 +300,17 @@ template <typename T> class matrix {
 
     matrix<bool> operator==(T rhs) const {
         return map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return value == rhs; });
+            [&rhs](uint32_t row, uint32_t col, T value) { return value == rhs; });
     }
 
     friend matrix<bool> operator==(T lhs, const matrix& rhs) {
         return rhs.map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs == value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs == value; });
     }
 
     matrix<bool> operator==(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<bool>([&](uint32_t row, uint32_t col, T value) {
+        return map<bool>([&rhs](uint32_t row, uint32_t col, T value) {
             return value == rhs.get(row, col);
         });
     };
@@ -309,17 +319,17 @@ template <typename T> class matrix {
 
     matrix<bool> operator!=(T rhs) const {
         return map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return value != rhs; });
+            [&rhs](uint32_t row, uint32_t col, T value) { return value != rhs; });
     }
 
     friend matrix<bool> operator!=(T lhs, const matrix& rhs) {
         return rhs.map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs != value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs != value; });
     }
 
     matrix<bool> operator!=(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<bool>([&](uint32_t row, uint32_t col, T value) {
+        return map<bool>([&rhs](uint32_t row, uint32_t col, T value) {
             return value != rhs.get(row, col);
         });
     };
@@ -328,17 +338,17 @@ template <typename T> class matrix {
 
     matrix<bool> operator<=(T rhs) const {
         return map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return value <= rhs; });
+            [&rhs](uint32_t row, uint32_t col, T value) { return value <= rhs; });
     }
 
     friend matrix<bool> operator<=(T lhs, const matrix& rhs) {
         return rhs.map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs <= value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs <= value; });
     }
 
     matrix<bool> operator<=(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<bool>([&](uint32_t row, uint32_t col, T value) {
+        return map<bool>([&rhs](uint32_t row, uint32_t col, T value) {
             return value <= rhs.get(row, col);
         });
     };
@@ -347,17 +357,17 @@ template <typename T> class matrix {
 
     matrix<bool> operator>=(T rhs) const {
         return map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return value >= rhs; });
+            [&rhs](uint32_t row, uint32_t col, T value) { return value >= rhs; });
     }
 
     friend matrix<bool> operator>=(T lhs, const matrix& rhs) {
         return rhs.map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs >= value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs >= value; });
     }
 
     matrix<bool> operator>=(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<bool>([&](uint32_t row, uint32_t col, T value) {
+        return map<bool>([&rhs](uint32_t row, uint32_t col, T value) {
             return value >= rhs.get(row, col);
         });
     };
@@ -366,17 +376,17 @@ template <typename T> class matrix {
 
     matrix<bool> operator<(T rhs) const {
         return map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return value < rhs; });
+            [&rhs](uint32_t row, uint32_t col, T value) { return value < rhs; });
     }
 
     friend matrix<bool> operator<(T lhs, const matrix& rhs) {
         return rhs.map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs < value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs < value; });
     }
 
     matrix<bool> operator<(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<bool>([&](uint32_t row, uint32_t col, T value) {
+        return map<bool>([&rhs](uint32_t row, uint32_t col, T value) {
             return value < rhs.get(row, col);
         });
     };
@@ -385,17 +395,17 @@ template <typename T> class matrix {
 
     matrix<bool> operator>(T rhs) const {
         return map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return value > rhs; });
+            [&rhs](uint32_t row, uint32_t col, T value) { return value > rhs; });
     }
 
     friend matrix<bool> operator>(T lhs, const matrix& rhs) {
         return rhs.map<bool>(
-            [&](uint32_t row, uint32_t col, T value) { return lhs > value; });
+            [&lhs](uint32_t row, uint32_t col, T value) { return lhs > value; });
     }
 
     matrix<bool> operator>(const matrix& rhs) const {
         ensure_same_dim(rhs);
-        return map<bool>([&](uint32_t row, uint32_t col, T value) {
+        return map<bool>([&rhs](uint32_t row, uint32_t col, T value) {
             return value > rhs.get(row, col);
         });
     };
@@ -403,21 +413,31 @@ template <typename T> class matrix {
     // aggregation methods
 
     T sum() const {
-        T res = 0;
-        for_each([&](uint32_t row, uint32_t col, T value) { res += value; });
-        return res;
+        return reduce([](T acc, T value) { return acc + value; }, (T)0);
+    }
+
+    T min() const {
+        if (empty()) {
+            throw std::invalid_argument("min() on empty matrix");
+        }
+        auto my_min = [](T acc, T value) { return value < acc ? value : acc; };
+        return reduce(my_min, get(0, 0));
+    }
+
+    T max() const {
+        if (empty()) {
+            throw std::invalid_argument("max() on empty matrix");
+        }
+        auto my_max = [](T acc, T value) { return value > acc ? value : acc; };
+        return reduce(my_max, get(0, 0));
     }
 
     bool all() const {
-        bool res = true;
-        for_each([&](uint32_t row, uint32_t col, T value) { res &= value; });
-        return res;
+        return reduce([](bool acc, T value) { return acc && value; }, true);
     }
 
     bool any() const {
-        bool res = false;
-        for_each([&](uint32_t row, uint32_t col, T value) { res |= value; });
-        return res;
+        return reduce([](bool acc, T value) { return acc || value; }, false);
     }
 };
 
@@ -432,13 +452,28 @@ template <typename T> matrix<T> ones(uint32_t rows, uint32_t cols) {
 template <typename T> matrix<T> eye(uint32_t rows, uint32_t cols) {
     matrix<T> mat(rows, cols, 0);
     uint32_t min_count = std::min(rows, cols);
-    for (uint32_t i = 0; i < min_count; i++) {
+    for (uint32_t i = 0; i < min_count; ++i) {
         mat.set(i, i, 1);
     }
     return mat;
 }
 
 template <typename T> matrix<T> eye(uint32_t size) { return eye<T>(size, size); }
+
+template <typename T> matrix<T> hstack(const matrix<T>& m1, const matrix<T>& m2) {
+    if (!(m1.shape().rows == m2.shape().rows)) {
+        throw std::invalid_argument("rows don't match for hstack");
+    }
+    matrix<T> mat(m1.shape().rows, m1.shape().cols + m2.shape().cols);
+
+    m1.for_each([&mat](uint32_t row, uint32_t col, T value) { mat[row][col] = value; });
+
+    uint32_t offset = m1.shape().cols;
+    m2.for_each([&mat, offset](uint32_t row, uint32_t col, T value) {
+        mat[row][offset + col] = value;
+    });
+    return mat;
+}
 
 matrix<double> rand(uint32_t rows, uint32_t cols) {
     matrix<double> mat(rows, cols);
@@ -449,11 +484,9 @@ matrix<double> rand(uint32_t rows, uint32_t cols) {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> uniform(0.0, 1.0);
 
-    for (uint32_t row = 0; row < rows; row++) {
-        for (uint32_t col = 0; col < cols; col++) {
-            mat.set(row, col, uniform(gen));
-        }
-    }
+    mat.for_each([&](uint32_t row, uint32_t col, double value) {
+        mat[row][col] = uniform(gen);
+    });
 
     return mat;
 }
@@ -467,11 +500,8 @@ matrix<double> randn(uint32_t rows, uint32_t cols, double mean = 0, double stdde
     std::mt19937 gen(rd());
     std::normal_distribution<> normal(mean, stddev);
 
-    for (uint32_t row = 0; row < rows; row++) {
-        for (uint32_t col = 0; col < cols; col++) {
-            mat.set(row, col, normal(gen));
-        }
-    }
+    mat.for_each(
+        [&](uint32_t row, uint32_t col, double value) { mat[row][col] = normal(gen); });
 
     return mat;
 }

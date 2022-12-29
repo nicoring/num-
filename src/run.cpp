@@ -74,7 +74,15 @@ void test_io() {
     std::cout << mat.shape() << std::endl;
 }
 
+void test_random() {
+    num::matrix<double> m1 = num::rand(5, 5);
+    num::matrix<double> m2 = num::randn(5, 5);
+
+    m1.print();
+    m2.print();
+}
+
 int main() {
-    test_io();
+    test_random();
     return 0;
 }

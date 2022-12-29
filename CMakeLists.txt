@@ -5,7 +5,7 @@ project(num++)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-SET(CMAKE_CXX_FLAGS "-Ofast -ffast-math")
+SET(CMAKE_CXX_FLAGS "-Ofast -ffast-math -march=native")
 SET(CMAKE_C_FLAGS "-Ofast")
 
 add_executable(run src/run.cpp)

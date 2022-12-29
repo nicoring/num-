@@ -75,6 +75,18 @@ TEST(Initialization, WrongValuesVectorOfVectors) {
     EXPECT_THROW(num::matrix<int> mat({{1, 2}, {4, 5, 6}}), std::invalid_argument);
 }
 
+TEST(Initialization, RandUniform) {
+    num::matrix<double> m = num::rand(1000, 1000);
+    double mean = m.sum() / (double)m.size();
+    EXPECT_NEAR(mean, 0.5, 0.01);
+}
+
+TEST(Initialization, RandNormal) {
+    num::matrix<double> m = num::randn(1000, 1000);
+    double mean = m.sum() / (double)m.size();
+    EXPECT_NEAR(mean, 0, 0.01);
+}
+
 TEST(Transpose, values) {
     num::matrix<int> mat({{1, 2, 3}, {4, 5, 6}});
     num::matrix<int> expected({{1, 4}, {2, 5}, {3, 6}});
@@ -130,11 +142,18 @@ TEST(Operators, DivideFloat) {
     EXPECT_FLOAT_EQ(mat4.get(0, 0), 4);
 }
 
-TEST(AggregationMethods, Sum) {
+TEST(AggregationMethods, SumInt) {
     num::matrix<int> mat(2, 2, 2);
-    EXPECT_EQ(mat.sum(), 2 * 2 * 2);
+    EXPECT_EQ(mat.sum(), 8.0);
     num::matrix<int> empty;
     EXPECT_EQ(empty.sum(), 0);
+}
+
+TEST(AggregationMethods, SumSmallDouble) {
+    num::matrix<double> mat(2, 2, 0.2);
+    EXPECT_EQ(mat.sum(), 0.8);
+    num::matrix<double> empty;
+    EXPECT_EQ(empty.sum(), 0.0);
 }
 
 TEST(AggregationMethods, All) {
@@ -155,6 +174,22 @@ TEST(AggregationMethods, Any) {
     EXPECT_TRUE(mat.any());
     num::matrix<int> empty;
     EXPECT_FALSE(empty.any());
+}
+
+TEST(AggregationMethods, Max) {
+    num::matrix<int> mat({{1, 2, 3}, {100, 5, 6}});
+    EXPECT_EQ(mat.max(), 100);
+}
+
+TEST(AggregationMethods, Min) {
+    num::matrix<int> mat({{1, 2, 3}, {0, 5, 6}});
+    EXPECT_EQ(mat.min(), 0);
+}
+
+TEST(AggregationMethods, MinMaxThrow) {
+    num::matrix<int> mat;
+    EXPECT_THROW(mat.min(), std::invalid_argument);
+    EXPECT_THROW(mat.max(), std::invalid_argument);
 }
 
 TEST(ComparisonOperators, Eq) {
@@ -249,4 +284,14 @@ TEST(Access, Assignment) {
 
     mat[0][0] = 5;
     EXPECT_EQ(mat.get(0, 0), 5);
+}
+
+TEST(Stacking, hstack) {
+    const num::matrix<int> a({{1, 2}, {5, 6}});
+    const num::matrix<int> b({{3, 4}, {7, 8}});
+    num::matrix<int> expected({{1, 2, 3, 4}, {5, 6, 7, 8}});
+
+    const num::matrix<int> result = num::hstack(a, b);
+
+    EXPECT_TRUE((result == expected).all());
 }
